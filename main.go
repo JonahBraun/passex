@@ -8,16 +8,16 @@ import (
 	"log"
 	"math/big"
 	"os"
-	
+
 	// web
-	"net/http"
 	"html/template"
+	"net/http"
 )
 
 var (
-	verbose = flag.Bool("v", false, "verbose") 
-	
-	alphabet = map[string] []rune {
+	verbose = flag.Bool("v", false, "verbose")
+
+	alphabet = map[string][]rune{
 		"easy": []rune("abcdefghjkmnpqrstuvwxqz23456789"),
 		"full": []rune("abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789"),
 		"punc": []rune("abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789~!@#$%^&*()-_+={}[]|;:<>?,./"),
@@ -26,7 +26,6 @@ var (
 
 	runeChan = make(chan rune, 2048)
 )
-
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	h := r.URL.Path[1:5]
@@ -42,19 +41,21 @@ func genRune(c chan rune, set []rune) {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		
+
 		c <- set[random.Int64()]
 	}
 }
 
-func makePass(w http.ResponseWriter, req *http.Request){
+func makePass(w http.ResponseWriter, req *http.Request) {
 	log.Print(req.URL)
 	return
-	
+
 	length := 4
 	runes := make([]rune, length)
 
-	for i := range runes { runes[i] = <- runeChan }
+	for i := range runes {
+		runes[i] = <-runeChan
+	}
 
 	pass := string(runes)
 	fmt.Println(pass)
