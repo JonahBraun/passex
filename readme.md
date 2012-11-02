@@ -1,0 +1,3 @@
+## Passex - Secure Password Exchange
+
+This is incomplete, a work in progress. However my laptop is dying and I need to get this code somewhere else safe...
