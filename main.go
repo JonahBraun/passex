@@ -1,74 +1,110 @@
 package main
 
 import (
-	"crypto/rand"
 	"flag"
-	"fmt"
+	//"fmt"
 	"io"
 	"log"
-	"math/big"
-	"os"
+	"strconv"
 
 	// web
 	"html/template"
+	"github.com/bmizerany/pat"
 	"net/http"
 )
+
+type PassConfig struct{
+	alphabet string
+	Pass func(length int) ([]rune)
+}
 
 var (
 	verbose = flag.Bool("v", false, "verbose")
 
-	alphabet = map[string][]rune{
-		"easy": []rune("abcdefghjkmnpqrstuvwxqz23456789"),
-		"full": []rune("abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789"),
-		"punc": []rune("abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789~!@#$%^&*()-_+={}[]|;:<>?,./"),
-		"pepr": []rune("ABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789~!@#$%^&*()-_+={}[]|;:<>?,./"),
+	defaultFounts = map[string] PassConfig{
+		"lowercase": {"abcdefghjkmnpqrstuvwxqz", func(length int, f *Fount)(r []rune){
+			return []rune("foo")
+		}},
+		//"easy": "abcdefghjkmnpqrstuvwxqz23456789",
+		//"full": "abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789",
+		//"puncuation": "abcdefghijklmnopqrstuvwxqzABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789~!@#$%^&*()-_+={}[]|;:<>?,./",
+		//"pepper": "ABCDEFGHIJKLMNOPQRSTUVWXQZ0123456789~!@#$%^&*()-_+={}[]|;:<>?,./",
+		//"consonants": "bcdfghjklmnpqrstvwxz",
+		//"vowels": "aeiouy",
 	}
 
-	runeChan = make(chan rune, 2048)
+	founts = map[string] *Fount{}
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	h := r.URL.Path[1:5]
-	fmt.Fprintf(w, "Hi there, I love %s!", h)
+func page(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseFiles("frontpage.html")
 	t.Execute(w, nil)
 }
 
-func genRune(c chan rune, set []rune) {
+/*
+func fakeWord(c chan string){
 	for {
-		random, err := rand.Int(rand.Reader, big.NewInt(int64(len(set))))
+		length, err := rand.Int(rand.Reader, big.NewInt(int64(5)))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		c <- set[random.Int64()]
-	}
-}
+		// the length of words will be between 2 and 7 characters
+		word := make([]rune, length+2)
+		
+		state := ""
+		for i := range word{
+			switch state{
+			case "":
+				if rand.Int(rand.reader, big.NewInt(1)) {
+					state = "c"
+					word[i] = <- rc["consonants"]
+				}
+				else {
+					state = "v"
+					word[i] = <- rc["vowels"]
+				}
+*/
 
 func makePass(w http.ResponseWriter, req *http.Request) {
-	log.Print(req.URL)
-	return
+	length, err := strconv.Atoi(req.URL.Query().Get(":length"))
 
-	length := 4
-	runes := make([]rune, length)
-
-	for i := range runes {
-		runes[i] = <-runeChan
+	if err != nil || length>2000 {
+		http.Error(w, "Length must be an int < 2000", http.StatusBadRequest);
+		return
 	}
 
+	fountType := req.URL.Query().Get(":type")
+	fount, ok := founts[fountType];
+
+	if !ok {
+		http.Error(w, "Not a valid pass type", http.StatusBadRequest)
+		return
+	}
+
+	runes := fount.runes(length)
+
 	pass := string(runes)
-	fmt.Println(pass)
+	log.Print("Generated password: " + pass)
 	io.WriteString(w, pass)
 }
 
 func main() {
 	flag.Parse()
+	log.Print("PassEx web server starting")
 
-	log.Print("Starting up...")
+	log.Print("Creating rune fountains...")
+	for i, config := range defaultFounts {
+		founts[i] = NewFount(config)
+	}
 
-	go genRune(runeChan, alphabet["punc"])
+	m := pat.New()
+	m.Get("/make/:type/:length", http.HandlerFunc(makePass))
 
-	http.HandleFunc("/pass/", makePass)
+	m.Get("/", http.HandlerFunc(page))
+
+	http.Handle("/", m)
 	http.ListenAndServe(":8080", nil)
 }
+

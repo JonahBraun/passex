@@ -1,0 +1,3 @@
+#!/bin/bash
+
+wabo -a 'go run fount.go main.go' -w 900 -u 'http://localhost:8080/'
